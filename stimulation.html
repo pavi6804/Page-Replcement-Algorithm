@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page Replacement Algorithm Simulation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #fbf7f7ee;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #FFB6C1;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            text-align: center;
+        }
+        .frame {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            border: 1px solid #000;
+            margin: 5px;
+            line-height: 50px;
+            vertical-align: middle;
+            transition: background-color 0.6s, transform 0.6s;
+        }
+        .fault {
+            background-color: rgba(219, 255, 153, 0.593);
+            transform: scale(1.2);
+        }
+        .no-fault {
+            background-color: #9f9;
+        }
+        .stack {
+            display: inline-block;
+            margin: 10px;
+            padding: 10px;
+            border: 1px solid #000;
+        }
+        .stack div {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="algorithm-title"></h1>
+        <h2>Simulation Results</h2>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const algorithm = params.get('algorithm');
+            const pages = params.get('pages').split(',').map(Number);
+            const frames = parseInt(params.get('frames'));
+
+            document.getElementById('algorithm-title').innerText = algorithm + ' Algorithm';
+            
+            if (algorithm === 'LRU') {
+                simulateLRU(pages, frames);
+            } else if (algorithm === 'FIFO') {
+                simulateFIFO(pages, frames);
+            } else if (algorithm === 'Optimal') {
+                simulateOptimal(pages, frames);
+            }
+        });
+
+        function simulateLRU(pages, frames) {
+            const pageFrame = [];
+            const pageMap = new Map();
+            let pageFaults = 0;
+            const steps = [];
+
+            pages.forEach((page, index) => {
+                let fault = false;
+                if (!pageMap.has(page)) {
+                    pageFaults++;
+                    fault = true;
+                    if (pageFrame.length < frames) {
+                        pageFrame.push(page);
+                    } else {
+                        let lruPage = pageFrame[0];
+                        for (let i = 1; i < pageFrame.length; i++) {
+                            if (pageMap.get(pageFrame[i]) < pageMap.get(lruPage)) {
+                                lruPage = pageFrame[i];
+                            }
+                        }
+                        const lruIndex = pageFrame.indexOf(lruPage);
+                        pageFrame[lruIndex] = page;
+                        pageMap.delete(lruPage);
+                    }
+                }
+                pageMap.set(page, index);
+                steps.push({ frame: [...pageFrame], fault });
+            });
+
+            displayResult('LRU', pageFaults, steps);
+        }
+
+        function simulateFIFO(pages, frames) {
+            const pageFrame = [];
+            let pageFaults = 0;
+            const steps = [];
+
+            pages.forEach(page => {
+                let fault = false;
+                if (!pageFrame.includes(page)) {
+                    pageFaults++;
+                    fault = true;
+                    if (pageFrame.length < frames) {
+                        pageFrame.push(page);
+                    } else {
+                        pageFrame.shift();
+                        pageFrame.push(page);
+                    }
+                }
+                steps.push({ frame: [...pageFrame], fault });
+            });
+
+            displayResult('FIFO', pageFaults, steps);
+        }
+
+        function simulateOptimal(pages, frames) {
+            const pageFrame = [];
+            let pageFaults = 0;
+            const steps = [];
+
+            pages.forEach((page, index) => {
+                let fault = false;
+                if (!pageFrame.includes(page)) {
+                    pageFaults++;
+                    fault = true;
+                    if (pageFrame.length < frames) {
+                        pageFrame.push(page);
+                    } else {
+                        const futureUses = pageFrame.map(p => pages.slice(index + 1).indexOf(p));
+                        const replaceIndex = futureUses.indexOf(Math.max(...futureUses, -1));
+                        pageFrame[replaceIndex] = page;
+                    }
+                }
+                steps.push({ frame: [...pageFrame], fault });
+            });
+
+            displayResult('Optimal', pageFaults, steps);
+        }
+
+        function displayResult(algorithmName, pageFaults, steps) {
+            const resultDiv = document.getElementById('result');
+            const summary = document.createElement('p');
+            summary.innerText = 'Total Page Faults: ' + pageFaults;
+            resultDiv.appendChild(summary);
+
+            const stack = document.createElement('div');
+            stack.className = 'stack';
+            resultDiv.appendChild(stack);
+
+            steps.forEach((step, index) => {
+                setTimeout(() => {
+                    stack.innerHTML = '';
+                    step.frame.forEach(page => {
+                        const frame = document.createElement('div');
+                        frame.className = 'frame';
+                        frame.innerText = page;
+                        frame.classList.add(step.fault ? 'fault' : 'no-fault');
+                        stack.appendChild(frame);
+                    });
+                }, index * 1000);
+            });
+        }
+    </script>
+</body>
+</html>
